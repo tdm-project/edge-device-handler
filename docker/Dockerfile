@@ -22,4 +22,4 @@ COPY src src
 
 ENTRYPOINT ["src/entrypoint.sh"]
 
-CMD [ "-c", "/opt/tdm.conf" ]
+CMD [ "-c", "/opt/configs/tdm.conf" ]
