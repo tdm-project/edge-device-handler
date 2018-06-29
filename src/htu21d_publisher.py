@@ -34,6 +34,7 @@ MQTT_HOST = "localhost"         # MQTT Broker address
 MQTT_PORT = 1883                # MQTT Broker port
 INFLUXDB_HOST = "localhost"     # INFLUXDB address
 INFLUXDB_PORT = 8086            # INFLUXDB port
+GPS_LOCATION = "0.0,0.0"        # DEFAULT location
 
 I2C_BUS_NUM = 1             # Default I2C Bus Number (RPi2/3)
 ACQUISITION_INTERVAL = 60   # Seconds between two acquisitions and transmissions
@@ -77,6 +78,7 @@ def main():
         'logging_level' : logging.INFO,
         'influxdb_host' : INFLUXDB_HOST,
         'influxdb_port' : INFLUXDB_PORT,
+        'gps_location'  : GPS_LOCATION,
 
         'interval'      : ACQUISITION_INTERVAL,
         'i2c_bus'       : I2C_BUS_NUM
@@ -124,6 +126,9 @@ def main():
     parser.add_argument('--influxdb-port', dest='influxdb_port', action='store',
         type=int,
         help='port of the influx database (default: {})'.format(INFLUXDB_PORT))
+    parser.add_argument('--gps-location', dest='gps_location', action='store',
+        type=str,
+        help='GPS coordinates of the sensor as latitude,longitude (default: {})'.format(GPS_LOCATION))
 
     args = parser.parse_args()
 
@@ -135,6 +140,7 @@ def main():
     logger.debug(vars(args))
 
     v_mqtt_topic = 'Device/' + 'EDGE.HTU21D'
+    v_latitude, v_longitude = map(float, args.gps_location.split(','))
 
     htu21d = HTU21D.HTU21D(busnum=args.i2c_bus)
 
@@ -171,6 +177,8 @@ def main():
         v_timestamp = int(t_now)
 
         m['timestamp'] = v_timestamp
+        m['latitude']  = v_latitude
+        m['longitude'] = v_longitude
 
         try:
             htu21d.reset()
