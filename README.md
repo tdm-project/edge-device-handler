@@ -38,7 +38,7 @@ Values are applied in the following order, the last overwriting the previous:
 
    I2C bus number to which the sensor is attached (default: *1*)
 
-When a settings is present both in the *GENERAL* and *application specific*  section, the application specific is applied to the spacific handler.
+When a settings is present both in the *GENERAL* and *application specific*  section, the application specific is applied to the specific handler.
 
 In this example, the *logging\_level* settings is overwritten to *1* only for this handler, while other handlers use *0* from the section *GENERAL*:
 
