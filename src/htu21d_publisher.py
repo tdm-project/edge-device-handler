@@ -72,20 +72,23 @@ def main():
 
     args, remaining_args = pre_parser.parse_known_args()
 
-    v_config_defaults = {
+    v_general_config_defaults = {
         'mqtt_host'     : MQTT_HOST,
         'mqtt_port'     : MQTT_PORT,
         'logging_level' : logging.INFO,
         'influxdb_host' : INFLUXDB_HOST,
         'influxdb_port' : INFLUXDB_PORT,
         'gps_location'  : GPS_LOCATION,
+        }
 
+    v_specific_config_defaults = {
         'interval'      : ACQUISITION_INTERVAL,
         'i2c_bus'       : I2C_BUS_NUM
         }
 
     v_config_section_defaults = {
-        APPLICATION_NAME: v_config_defaults
+        'GENERAL': v_general_config_defaults,
+        APPLICATION_NAME: v_specific_config_defaults
         }
 
     if args.config_file:
@@ -93,13 +96,20 @@ def main():
         v_config.read_dict(v_config_section_defaults)
         v_config.read(args.config_file)
 
-        v_config_defaults = dict(v_config.items(APPLICATION_NAME))
+        # Loads as defaults from config file only the options in section
+        # GENERAL that are listed in v_general_config_defaults
+        v_config_defaults = {_key: v_config.get('GENERAL', _key) for _key in
+                v_config.options('GENERAL') if _key in
+                v_general_config_defaults}
+
+        # Updates the defaults dictionary with the application specific options
+        v_config_defaults.update(v_config.items(APPLICATION_NAME))
 
     parser = argparse.ArgumentParser(parents=[pre_parser],
             description='Acquire data from HTU21D temperature/humidity sensor and publish them to a local MQTT broker.',
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.set_defaults(**v_config_defaults)
+    parser.set_defaults(**v_general_config_defaults, **v_specific_config_defaults)
 
     parser.add_argument('-l', '--logging-level', dest='logging_level', action='store',
         type=int,
@@ -114,7 +124,7 @@ def main():
     parser.add_argument('--i2c_bus', dest='i2c_bus', action='store',
         type=int,
         help='I2C bus number to which the sensor is attached '
-        '(default: {} secs)'.format(I2C_BUS_NUM))
+        '(default: {})'.format(I2C_BUS_NUM))
     parser.add_argument('--interval', dest='interval', action='store',
         type=int,
         help='interval in seconds for data acquisition and publication '
