@@ -91,25 +91,32 @@ def main():
         APPLICATION_NAME: v_specific_config_defaults
         }
 
-    if args.config_file:
-        v_config = configparser.ConfigParser()
-        v_config.read_dict(v_config_section_defaults)
-        v_config.read(args.config_file)
 
-        # Loads as defaults from config file only the options in section
-        # GENERAL that are listed in v_general_config_defaults
-        v_config_defaults = {_key: v_config.get('GENERAL', _key) for _key in
-                v_config.options('GENERAL') if _key in
+    # Default config values initialization
+    v_config_defaults = {}
+    v_config_defaults.update(v_general_config_defaults)
+    v_config_defaults.update(v_specific_config_defaults)
+
+    if args.config_file:
+        _config = configparser.ConfigParser()
+        _config.read_dict(v_config_section_defaults)
+        _config.read(args.config_file)
+
+        # Filter out GENERAL options not listed in v_general_config_defaults
+        _general_defaults = {_key: _config.get('GENERAL', _key) for _key in
+                _config.options('GENERAL') if _key in
                 v_general_config_defaults}
 
-        # Updates the defaults dictionary with the application specific options
-        v_config_defaults.update(v_config.items(APPLICATION_NAME))
+        # Updates the defaults dictionary with general and application specific
+        # options
+        v_config_defaults.update(_general_defaults)
+        v_config_defaults.update(_config.items(APPLICATION_NAME))
 
     parser = argparse.ArgumentParser(parents=[pre_parser],
             description='Acquire data from HTU21D temperature/humidity sensor and publish them to a local MQTT broker.',
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.set_defaults(**v_general_config_defaults, **v_specific_config_defaults)
+    parser.set_defaults(**v_config_defaults)
 
     parser.add_argument('-l', '--logging-level', dest='logging_level', action='store',
         type=int,
@@ -149,7 +156,7 @@ def main():
     logger.info("Starting {:s}".format(APPLICATION_NAME))
     logger.debug(vars(args))
 
-    v_mqtt_topic = 'Device/' + 'EDGE.HTU21D'
+    v_mqtt_topic = 'DeviceStatus/' + 'EDGE.HTU21D'
     v_latitude, v_longitude = map(float, args.gps_location.split(','))
 
     htu21d = HTU21D.HTU21D(busnum=args.i2c_bus)
