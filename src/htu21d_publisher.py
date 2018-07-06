@@ -15,20 +15,24 @@
 #  limitations under the License.
 #
 
+import os
 import sys
 import json
 import time
+import shutil
 import signal
 import socket
 import logging
 import influxdb
 import argparse
 import datetime
+import platform
 import configparser
 import paho.mqtt.publish as publish
 
 import Adafruit_HTU21D.HTU21D as HTU21D
-
+import continuous_scheduler
+import housekeeping
 
 MQTT_HOST = "localhost"         # MQTT Broker address
 MQTT_PORT = 1883                # MQTT Broker port
@@ -53,6 +57,85 @@ PROVIDES = [                # What measures we are providing
 def signal_handler(sig, frame):
     sys.exit(0)
 
+
+def htu21d_task(userdata):
+    v_logger     = userdata['LOGGER']
+    v_mqtt_topic = userdata['MQTT_TOPIC'] + '.HTU21D'
+    v_mqtt_host  = userdata['MQTT_HOST']
+    v_mqtt_port  = userdata['MQTT_PORT']
+    v_i2c_bus    = userdata['I2C_BUS']
+
+    v_influxdb_host = userdata['INFLUXDB_HOST']
+    v_influxdb_port = userdata['INFLUXDB_PORT']
+    v_influxdb_username = userdata['INFLUXDB_USER']
+    v_influxdb_password = userdata['INFLUXDB_PASS']
+    v_influxdb_database = userdata['INFLUXDB_DB']
+
+    m = dict()
+
+    t_now = datetime.datetime.now().timestamp()
+    v_timestamp = int(t_now)
+
+    m['dateObserved'] = datetime.datetime.fromtimestamp(v_timestamp,
+                    tz=datetime.timezone.utc).isoformat()
+    m['timestamp'] = v_timestamp
+    m['latitude']  = userdata['LATITUDE']
+    m['longitude'] = userdata['LONGITUDE']
+
+    htu21d = HTU21D.HTU21D(busnum=v_i2c_bus)
+
+    try:
+        htu21d.reset()
+
+        m["temperature"] = htu21d.read_temperature()
+        m["humidity"]    = htu21d.read_humidity()
+        m["dewpoint"]    = htu21d.read_dewpoint()
+
+        _json_data = [ {
+            "measurement": "sensors",
+            "tags": {
+                "sensor": "htu21d",
+            },
+            "time": m['timestamp'],
+            "fields": {
+                "temperature": m['temperature'],
+                "humidity":    m['humidity'],
+                "dewpoint":    m['dewpoint']
+            }
+        } ]
+
+    except IOError as iex:
+        m["temperature"] = None
+        m["humidity"]    = None
+        m["dewpoint"]    = None
+
+        _json_data = None
+
+    if _json_data is not None:
+        try:
+            _client = influxdb.InfluxDBClient(
+                host=v_influxdb_host,
+                port=v_influxdb_port,
+                username=v_influxdb_username,
+                password=v_influxdb_password,
+                database=v_influxdb_database
+            )
+
+            _client.write_points(_json_data, time_precision='s')
+            v_logger.debug("Insert data into InfluxDB: {:s}".format(str(_json_data)))
+        except Exception as ex:
+            v_logger.error(ex)
+        finally:
+            _client.close()
+
+    try:
+        v_payload = json.dumps(m)
+        v_logger.debug("Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
+            "message:\'{:s}\'".format(v_mqtt_topic, v_mqtt_host, v_mqtt_port, v_payload))
+        publish.single(v_mqtt_topic, v_payload, hostname=v_mqtt_host,
+            port=v_mqtt_port)
+    except socket.error:
+        pass
 
 def main():
     # Initializes the default logger
@@ -90,7 +173,6 @@ def main():
         'GENERAL': v_general_config_defaults,
         APPLICATION_NAME: v_specific_config_defaults
         }
-
 
     # Default config values initialization
     v_config_defaults = {}
@@ -156,101 +238,55 @@ def main():
     logger.info("Starting {:s}".format(APPLICATION_NAME))
     logger.debug(vars(args))
 
-    v_mqtt_topic = 'DeviceStatus/' + 'EDGE.HTU21D'
+    v_mqtt_topic = 'DeviceStatus/' + 'EDGE'
     v_latitude, v_longitude = map(float, args.gps_location.split(','))
 
-    htu21d = HTU21D.HTU21D(busnum=args.i2c_bus)
+    v_influxdb_host = args.influxdb_host
+    v_influxdb_port = args.influxdb_port
 
     # TODO: FROM CONFIG?
-    v_influx_db     = 'edgedevicehandler'
+    v_influxdb_database = 'edgedevicehandler'
 
     #v_influxdb_username = args.influxdb_username
     #v_influxdb_password = args.influxdb_password
     v_influxdb_username = 'root'
     v_influxdb_password = 'root'
 
-    v_influxdb_host = args.influxdb_host
-    v_influxdb_port = args.influxdb_port
-
     _client = influxdb.InfluxDBClient(
         host=v_influxdb_host,
         port=v_influxdb_port,
         username=v_influxdb_username,
         password=v_influxdb_password,
-        database=v_influx_db
+        database=v_influxdb_database
     )
 
     _dbs = _client.get_list_database()
-    if v_influx_db not in [_d['name'] for _d in _dbs]:
-        logger.info("InfluxDB database '{:s}' not found. Creating a new one.".format(v_influx_db))
-        _client.create_database(v_influx_db)
+    if v_influxdb_database not in [_d['name'] for _d in _dbs]:
+        logger.info("InfluxDB database '{:s}' not found. Creating a new one.".format(v_influxdb_database))
+        _client.create_database(v_influxdb_database)
 
     _client.close()
 
-    while True:
-        m = dict()
+    _userdata = {
+        'LOGGER'     : logger,
+        'LATITUDE'   : v_latitude,
+        'LONGITUDE'  : v_longitude,
+        'MQTT_TOPIC' : v_mqtt_topic,
+        'MQTT_HOST'  : args.mqtt_host,
+        'MQTT_PORT'  : args.mqtt_port,
+        'I2C_BUS'    : args.i2c_bus,
 
-        t_now = datetime.datetime.now().timestamp()
-        v_timestamp = int(t_now)
+        'INFLUXDB_HOST': v_influxdb_host,
+        'INFLUXDB_PORT': v_influxdb_port,
+        'INFLUXDB_USER': v_influxdb_username,
+        'INFLUXDB_PASS': v_influxdb_password,
+        'INFLUXDB_DB'  : v_influxdb_database
+    }
 
-        m['timestamp'] = v_timestamp
-        m['latitude']  = v_latitude
-        m['longitude'] = v_longitude
-
-        try:
-            htu21d.reset()
-
-            m["temperature"] = htu21d.read_temperature()
-            m["humidity"]    = htu21d.read_humidity()
-            m["dewpoint"]    = htu21d.read_dewpoint()
-
-            _json_data = [ {
-                "measurement": "sensors",
-                "tags": {
-                    "sensor": "htu21d",
-                },
-                "time": m['timestamp'],
-                "fields": {
-                    "temperature": m['temperature'],
-                    "humidity":    m['humidity'],
-                    "dewpoint":    m['dewpoint']
-                }
-            } ]
-
-        except IOError as iex:
-            m["temperature"] = None
-            m["humidity"]    = None
-            m["dewpoint"]    = None
-
-            _json_data = None
-
-        if _json_data is not None:
-            try:
-                _client = influxdb.InfluxDBClient(
-                    host=v_influxdb_host,
-                    port=v_influxdb_port,
-                    username='root',
-                    password='root',
-                    database=v_influx_db
-                )
-
-                _client.write_points(_json_data, time_precision='s')
-                logger.debug("Insert data into InfluxDB: {:s}".format(str(_json_data)))
-            except Exception as ex:
-                logger.error(ex)
-            finally:
-                _client.close()
-
-        try:
-            v_payload = json.dumps(m)
-            logger.debug("Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
-                "message:\'{:s}\'".format(v_mqtt_topic, args.mqtt_host, args.mqtt_port, v_payload))
-            publish.single(v_mqtt_topic, v_payload, hostname=args.mqtt_host,
-                port=args.mqtt_port)
-        except socket.error:
-            pass
-
-        time.sleep(args.interval)
+    _main_scheduler = continuous_scheduler.MainScheduler()
+    _main_scheduler.add_task(housekeeping.acquire, 0, 20, 0, _userdata)
+    _main_scheduler.add_task(htu21d_task, 0, 10, 0, _userdata)
+    _main_scheduler.start()
 
 
 if __name__ == "__main__":
