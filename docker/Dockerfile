@@ -21,6 +21,7 @@ RUN . venv/bin/activate && git clone https://github.com/mgaggero/Adafruit_Python
 	cd Adafruit_Python_HTU21D && python3 setup.py install
 
 COPY src src
+COPY tests tests
 
 ENTRYPOINT ["src/entrypoint.sh"]
 
