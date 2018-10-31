@@ -137,23 +137,14 @@ def htu21d_task(userdata):
     except socket.error:
         pass
 
-def main():
-    # Initializes the default logger
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-    logger = logging.getLogger(APPLICATION_NAME)
-
-    # Checks the Python Interpeter version
-    if (sys.version_info < (3, 0)):
-        ###TODO: Print error message here
-        sys.exit(-1)
-
+def configuration_parser(p_args=None):
     pre_parser = argparse.ArgumentParser(add_help=False)
 
     pre_parser.add_argument('-c', '--config-file', dest='config_file', action='store',
         type=str, metavar='FILE',
         help='specify the config file')
 
-    args, remaining_args = pre_parser.parse_known_args()
+    args, remaining_args = pre_parser.parse_known_args(p_args)
 
     v_general_config_defaults = {
         'mqtt_host'     : MQTT_HOST,
@@ -210,7 +201,7 @@ def main():
     parser.add_argument('--mqtt-port', dest='mqtt_port', action='store',
         type=int,
         help='port of the local broker (default: {})'.format(MQTT_PORT))
-    parser.add_argument('--i2c_bus', dest='i2c_bus', action='store',
+    parser.add_argument('--i2c-bus', dest='i2c_bus', action='store',
         type=int,
         help='I2C bus number to which the sensor is attached '
         '(default: {})'.format(I2C_BUS_NUM))
@@ -229,7 +220,21 @@ def main():
         type=str,
         help='GPS coordinates of the sensor as latitude,longitude (default: {})'.format(GPS_LOCATION))
 
-    args = parser.parse_args()
+    args = parser.parse_args(remaining_args)
+    return args
+
+
+def main():
+    # Initializes the default logger
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger = logging.getLogger(APPLICATION_NAME)
+
+    # Checks the Python Interpeter version
+    if (sys.version_info < (3, 0)):
+        ###TODO: Print error message here
+        sys.exit(-1)
+
+    args = configuration_parser()
 
     logger.setLevel(args.logging_level)
 
@@ -274,7 +279,7 @@ def main():
         'MQTT_TOPIC' : v_mqtt_topic,
         'MQTT_HOST'  : args.mqtt_host,
         'MQTT_PORT'  : args.mqtt_port,
-        'I2C_BUS'    : args.i2c_bus,
+        'I2C_BUS'    : args.i2c-bus,
 
         'INFLUXDB_HOST': v_influxdb_host,
         'INFLUXDB_PORT': v_influxdb_port,

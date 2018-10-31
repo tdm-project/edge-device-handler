@@ -73,7 +73,7 @@ i2c_bus = 1
 *  **--mqtt-port MQTT\_PORT**
 
    port of the local broker (default: *1883*)
-*  **--i2c\_bus I2C\_BUS**
+*  **--i2c-bus I2C\_BUS**
 
    I2C bus number to which the sensor is attached (default: *1*)
 *  **--interval INTERVAL**
