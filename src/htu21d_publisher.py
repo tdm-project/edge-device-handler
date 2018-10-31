@@ -279,7 +279,7 @@ def main():
         'MQTT_TOPIC' : v_mqtt_topic,
         'MQTT_HOST'  : args.mqtt_host,
         'MQTT_PORT'  : args.mqtt_port,
-        'I2C_BUS'    : args.i2c-bus,
+        'I2C_BUS'    : args.i2c_bus,
 
         'INFLUXDB_HOST': v_influxdb_host,
         'INFLUXDB_PORT': v_influxdb_port,
