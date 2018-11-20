@@ -2,5 +2,6 @@
 
 cd ${APP_HOME}
 . venv/bin/activate
-export PYTHONPATH="./src"
-python tests/test_configs.py $@
+export PYTHONPATH="${APP_HOME}/src"
+cd tests/
+python -m unittest $@
