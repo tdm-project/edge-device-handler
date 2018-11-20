@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-#  Copyright 2018, CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+#  Copyright 2018, CRS4 - Center for Advanced Studies, Research and Development
+#  in Sardinia
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,18 +16,14 @@
 #  limitations under the License.
 #
 
-import os
 import sys
 import json
-import time
-import shutil
 import signal
 import socket
 import logging
 import influxdb
 import argparse
 import datetime
-import platform
 import configparser
 import paho.mqtt.publish as publish
 
@@ -34,14 +31,14 @@ import Adafruit_HTU21D.HTU21D as HTU21D
 import continuous_scheduler
 import housekeeping
 
-MQTT_HOST = "localhost"         # MQTT Broker address
-MQTT_PORT = 1883                # MQTT Broker port
+MQTT_LOCAL_HOST = "localhost"   # MQTT Broker address
+MQTT_LOCAL_PORT = 1883          # MQTT Broker port
 INFLUXDB_HOST = "localhost"     # INFLUXDB address
 INFLUXDB_PORT = 8086            # INFLUXDB port
 GPS_LOCATION = "0.0,0.0"        # DEFAULT location
 
 I2C_BUS_NUM = 1             # Default I2C Bus Number (RPi2/3)
-ACQUISITION_INTERVAL = 60   # Seconds between two acquisitions and transmissions
+ACQUISITION_INTERVAL = 60   # Seconds between two acquisitions
 
 
 APPLICATION_NAME = 'HTU21D_publisher'
@@ -59,11 +56,11 @@ def signal_handler(sig, frame):
 
 
 def htu21d_task(userdata):
-    v_logger     = userdata['LOGGER']
+    v_logger = userdata['LOGGER']
     v_mqtt_topic = userdata['MQTT_TOPIC'] + '.HTU21D'
-    v_mqtt_host  = userdata['MQTT_HOST']
-    v_mqtt_port  = userdata['MQTT_PORT']
-    v_i2c_bus    = userdata['I2C_BUS']
+    v_mqtt_local_host = userdata['MQTT_LOCAL_HOST']
+    v_mqtt_local_port = userdata['MQTT_LOCAL_PORT']
+    v_i2c_bus = userdata['I2C_BUS']
 
     v_influxdb_host = userdata['INFLUXDB_HOST']
     v_influxdb_port = userdata['INFLUXDB_PORT']
@@ -131,9 +128,10 @@ def htu21d_task(userdata):
     try:
         v_payload = json.dumps(m)
         v_logger.debug("Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
-            "message:\'{:s}\'".format(v_mqtt_topic, v_mqtt_host, v_mqtt_port, v_payload))
-        publish.single(v_mqtt_topic, v_payload, hostname=v_mqtt_host,
-            port=v_mqtt_port)
+            "message:\'{:s}\'".format(v_mqtt_topic, v_mqtt_local_host,
+                v_mqtt_local_port, v_payload))
+        publish.single(v_mqtt_topic, v_payload, hostname=v_mqtt_local_host,
+            port=v_mqtt_local_port)
     except socket.error:
         pass
 
@@ -147,8 +145,8 @@ def configuration_parser(p_args=None):
     args, remaining_args = pre_parser.parse_known_args(p_args)
 
     v_general_config_defaults = {
-        'mqtt_host'     : MQTT_HOST,
-        'mqtt_port'     : MQTT_PORT,
+        'mqtt_local_host'     : MQTT_LOCAL_HOST,
+        'mqtt_local_port'     : MQTT_LOCAL_PORT,
         'logging_level' : logging.INFO,
         'influxdb_host' : INFLUXDB_HOST,
         'influxdb_port' : INFLUXDB_PORT,
@@ -194,13 +192,13 @@ def configuration_parser(p_args=None):
     parser.add_argument('-l', '--logging-level', dest='logging_level', action='store',
         type=int,
         help='threshold level for log messages (default: {})'.format(logging.INFO))
-    parser.add_argument('--mqtt-host', dest='mqtt_host', action='store',
+    parser.add_argument('--mqtt-host', dest='mqtt_local_host', action='store',
         type=str,
         help='hostname or address of the local broker (default: {})'
-            .format(MQTT_HOST))
-    parser.add_argument('--mqtt-port', dest='mqtt_port', action='store',
+            .format(MQTT_LOCAL_HOST))
+    parser.add_argument('--mqtt-port', dest='mqtt_local_port', action='store',
         type=int,
-        help='port of the local broker (default: {})'.format(MQTT_PORT))
+        help='port of the local broker (default: {})'.format(MQTT_LOCAL_PORT))
     parser.add_argument('--i2c-bus', dest='i2c_bus', action='store',
         type=int,
         help='I2C bus number to which the sensor is attached '
@@ -277,8 +275,8 @@ def main():
         'LATITUDE'   : v_latitude,
         'LONGITUDE'  : v_longitude,
         'MQTT_TOPIC' : v_mqtt_topic,
-        'MQTT_HOST'  : args.mqtt_host,
-        'MQTT_PORT'  : args.mqtt_port,
+        'MQTT_LOCAL_HOST'  : args.mqtt_local_host,
+        'MQTT_LOCAL_PORT'  : args.mqtt_local_port,
         'I2C_BUS'    : args.i2c_bus,
 
         'INFLUXDB_HOST': v_influxdb_host,
