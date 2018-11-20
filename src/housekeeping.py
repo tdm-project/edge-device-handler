@@ -100,7 +100,7 @@ def acquire(userdata):
     v_logger = userdata['LOGGER']
     v_mqtt_topic = userdata['MQTT_TOPIC'] + '.HOUSEKEEPING'
     v_mqtt_host = userdata['MQTT_LOCAL_HOST']
-    v_mqtt_port = userdata['MQTT_PORT']
+    v_mqtt_port = userdata['MQTT_LOCAL_PORT']
 
     m = dict()
 
