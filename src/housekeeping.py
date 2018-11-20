@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-#  Copyright 2018, CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+#  Copyright 2018, CRS4 - Center for Advanced Studies, Research and Development
+#  in Sardinia
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -25,27 +26,37 @@ import paho.mqtt.publish as publish
 
 
 def memoryTotal():
-    meminfo = { _l.split()[0].rstrip(':'): int(_l.split()[1]) 
-        for _l in open('/proc/meminfo').readlines() }
-    return int(meminfo['MemTotal']/1024)
+    """
+    Retrieves total system memory from /proc/meminfo in MB
+    """
+    meminfo = {
+        _l.split()[0].rstrip(':'): int(_l.split()[1])
+        for _l in open('/proc/meminfo').readlines()}
+    return int(meminfo['MemTotal'] / 1024)
 
 
 def memoryFree():
-    meminfo = { _l.split()[0].rstrip(':'): int(_l.split()[1]) 
-        for _l in open('/proc/meminfo').readlines() }
-    return int(meminfo['MemFree']/1024)
+    """
+    Retrieves free system memory from /proc/meminfo in MB
+    """
+    meminfo = {
+        _l.split()[0].rstrip(':'): int(_l.split()[1])
+        for _l in open('/proc/meminfo').readlines()}
+    return int(meminfo['MemFree'] / 1024)
 
 
 def swapTotal():
-    meminfo = { _l.split()[0].rstrip(':'): int(_l.split()[1]) 
-        for _l in open('/proc/meminfo').readlines() }
-    return int(meminfo['SwapTotal']/1024)
+    meminfo = {
+        _l.split()[0].rstrip(':'): int(_l.split()[1])
+        for _l in open('/proc/meminfo').readlines()}
+    return int(meminfo['SwapTotal'] / 1024)
 
 
 def swapFree():
-    meminfo = { _l.split()[0].rstrip(':'): int(_l.split()[1]) 
-        for _l in open('/proc/meminfo').readlines() }
-    return int(meminfo['SwapFree']/1024)
+    meminfo = {
+        _l.split()[0].rstrip(':'): int(_l.split()[1])
+        for _l in open('/proc/meminfo').readlines()}
+    return int(meminfo['SwapFree'] / 1024)
 
 
 def lastBoot():
@@ -60,12 +71,12 @@ def lastBoot():
 
 def diskTotal():
     _total, _used, _free = shutil.disk_usage('/')
-    return int(_total/(1024*1024))
+    return int(_total / (1024 * 1024))
 
 
 def diskFree():
     _total, _used, _free = shutil.disk_usage('/')
-    return int(_free/(1024*1024))
+    return int(_free / (1024 * 1024))
 
 
 PARAMETER_FUNCTION_MAP = {
@@ -84,23 +95,24 @@ PARAMETER_FUNCTION_MAP = {
 
 }
 
+
 def acquire(userdata):
-    v_logger     = userdata['LOGGER']
+    v_logger = userdata['LOGGER']
     v_mqtt_topic = userdata['MQTT_TOPIC'] + '.HOUSEKEEPING'
-    v_mqtt_host  = userdata['MQTT_HOST']
-    v_mqtt_port  = userdata['MQTT_PORT']
+    v_mqtt_host = userdata['MQTT_LOCAL_HOST']
+    v_mqtt_port = userdata['MQTT_PORT']
 
     m = dict()
-    
+
     t_now = datetime.datetime.now().timestamp()
     v_timestamp = int(t_now)
-    
-    m['dateObserved'] = datetime.datetime.fromtimestamp(v_timestamp,
-                    tz=datetime.timezone.utc).isoformat()
+
+    m['dateObserved'] = datetime.datetime.fromtimestamp(
+        v_timestamp, tz=datetime.timezone.utc).isoformat()
     m['timestamp'] = v_timestamp
-    m['latitude']  = userdata['LATITUDE']
+    m['latitude'] = userdata['LATITUDE']
     m['longitude'] = userdata['LONGITUDE']
-    
+
     for _parm in PARAMETER_FUNCTION_MAP:
         try:
             m[_parm] = PARAMETER_FUNCTION_MAP[_parm]()
@@ -110,9 +122,11 @@ def acquire(userdata):
 
     try:
         v_payload = json.dumps(m)
-        v_logger.debug("Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
-            "message:\'{:s}\'".format(v_mqtt_topic, v_mqtt_host, v_mqtt_port, v_payload))
-        publish.single(v_mqtt_topic, v_payload, hostname=v_mqtt_host,
+        v_logger.debug(
+            "Message topic:\'{:s}\', broker:\'{:s}:{:d}\', message:\'{:s}\'".
+            format(v_mqtt_topic, v_mqtt_host, v_mqtt_port, v_payload))
+        publish.single(
+            v_mqtt_topic, v_payload, hostname=v_mqtt_host,
             port=v_mqtt_port)
     except socket.error:
         pass
