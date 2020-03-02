@@ -7,7 +7,7 @@ DOCKER_IMAGE_TESTING=$(DOCKER_IMAGE_NAME):testing-$(DOCKER_IMAGE_VERSION)
 default: build-final
 
 build-final:
-	git branch
+	echo ${TRAVIS_BRANCH}
 	docker build --target=final -f docker/Dockerfile -t $(DOCKER_IMAGE_TAGNAME) .
 	docker tag $(DOCKER_IMAGE_TAGNAME) $(DOCKER_IMAGE_NAME):$(GIT_BRANCH)
 
