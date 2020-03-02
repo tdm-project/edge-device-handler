@@ -73,11 +73,11 @@ def htu21d_task(userdata):
     t_now = datetime.datetime.now().timestamp()
     v_timestamp = int(t_now)
 
-    m['dateObserved'] = datetime.datetime.fromtimestamp(v_timestamp,
-                    tz=datetime.timezone.utc).isoformat()
+    m['dateObserved'] = datetime.datetime.fromtimestamp(
+        v_timestamp, tz=datetime.timezone.utc).isoformat()
     m['timestamp'] = v_timestamp
-    m['latitude']  = userdata['LATITUDE']
     m['longitude'] = userdata['LONGITUDE']
+    m['latitude'] = userdata['LATITUDE']
 
     htu21d = HTU21D.HTU21D(busnum=v_i2c_bus)
 
@@ -85,10 +85,10 @@ def htu21d_task(userdata):
         htu21d.reset()
 
         m["temperature"] = htu21d.read_temperature()
-        m["humidity"]    = htu21d.read_humidity()
-        m["dewpoint"]    = htu21d.read_dewpoint()
+        m["humidity"] = htu21d.read_humidity()
+        m["dewpoint"] = htu21d.read_dewpoint()
 
-        _json_data = [ {
+        _json_data = [{
             "measurement": "sensors",
             "tags": {
                 "sensor": "htu21d",
@@ -96,15 +96,15 @@ def htu21d_task(userdata):
             "time": m['timestamp'],
             "fields": {
                 "temperature": m['temperature'],
-                "humidity":    m['humidity'],
-                "dewpoint":    m['dewpoint']
+                "humidity": m['humidity'],
+                "dewpoint": m['dewpoint']
             }
-        } ]
+        }]
 
-    except IOError as iex:
+    except IOError:
         m["temperature"] = None
-        m["humidity"]    = None
-        m["dewpoint"]    = None
+        m["humidity"] = None
+        m["dewpoint"] = None
 
         _json_data = None
 
@@ -119,7 +119,8 @@ def htu21d_task(userdata):
             )
 
             _client.write_points(_json_data, time_precision='s')
-            v_logger.debug("Insert data into InfluxDB: {:s}".format(str(_json_data)))
+            v_logger.debug(
+                "Insert data into InfluxDB: {:s}".format(str(_json_data)))
         except Exception as ex:
             v_logger.error(ex)
         finally:
@@ -127,18 +128,22 @@ def htu21d_task(userdata):
 
     try:
         v_payload = json.dumps(m)
-        v_logger.debug("Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
-            "message:\'{:s}\'".format(v_mqtt_topic, v_mqtt_local_host,
-                v_mqtt_local_port, v_payload))
-        publish.single(v_mqtt_topic, v_payload, hostname=v_mqtt_local_host,
+        v_logger.debug(
+            "Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
+            "message:\'{:s}\'".format(
+                v_mqtt_topic, v_mqtt_local_host, v_mqtt_local_port, v_payload))
+        publish.single(
+            v_mqtt_topic, v_payload, hostname=v_mqtt_local_host,
             port=v_mqtt_local_port)
     except socket.error:
         pass
 
+
 def configuration_parser(p_args=None):
     pre_parser = argparse.ArgumentParser(add_help=False)
 
-    pre_parser.add_argument('-c', '--config-file', dest='config_file', action='store',
+    pre_parser.add_argument(
+        '-c', '--config-file', dest='config_file', action='store',
         type=str, metavar='FILE',
         help='specify the config file')
 
@@ -151,17 +156,18 @@ def configuration_parser(p_args=None):
         'influxdb_host' : INFLUXDB_HOST,
         'influxdb_port' : INFLUXDB_PORT,
         'gps_location'  : GPS_LOCATION,
-        }
+    }
 
     v_specific_config_defaults = {
-        'interval'      : ACQUISITION_INTERVAL,
-        'i2c_bus'       : I2C_BUS_NUM
-        }
+        'htu_interval' : ACQUISITION_INTERVAL,
+        'hkp_interval' : ACQUISITION_INTERVAL,
+        'i2c_bus'      : I2C_BUS_NUM
+    }
 
     v_config_section_defaults = {
         'GENERAL': v_general_config_defaults,
         APPLICATION_NAME: v_specific_config_defaults
-        }
+    }
 
     # Default config values initialization
     v_config_defaults = {}
@@ -174,49 +180,71 @@ def configuration_parser(p_args=None):
         _config.read(args.config_file)
 
         # Filter out GENERAL options not listed in v_general_config_defaults
-        _general_defaults = {_key: _config.get('GENERAL', _key) for _key in
-                _config.options('GENERAL') if _key in
-                v_general_config_defaults}
+        _general_defaults = {
+            _key: _config.get('GENERAL', _key) for _key in
+            _config.options('GENERAL') if _key in
+            v_general_config_defaults}
 
         # Updates the defaults dictionary with general and application specific
         # options
         v_config_defaults.update(_general_defaults)
         v_config_defaults.update(_config.items(APPLICATION_NAME))
 
-    parser = argparse.ArgumentParser(parents=[pre_parser],
-            description='Acquire data from HTU21D temperature/humidity sensor and publish them to a local MQTT broker.',
-            formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        parents=[pre_parser],
+        description=(
+            'Acquire data from HTU21D temperature/humidity sensor '
+            'and publish them to a local MQTT broker.'),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.set_defaults(**v_config_defaults)
 
-    parser.add_argument('-l', '--logging-level', dest='logging_level', action='store',
+    parser.add_argument(
+        '-l', '--logging-level', dest='logging_level', action='store',
         type=int,
-        help='threshold level for log messages (default: {})'.format(logging.INFO))
-    parser.add_argument('--mqtt-host', dest='mqtt_local_host', action='store',
+        help='threshold level for log messages (default: {})'
+             .format(logging.INFO))
+    parser.add_argument(
+        '--mqtt-host', dest='mqtt_local_host', action='store',
         type=str,
         help='hostname or address of the local broker (default: {})'
-            .format(MQTT_LOCAL_HOST))
-    parser.add_argument('--mqtt-port', dest='mqtt_local_port', action='store',
+             .format(MQTT_LOCAL_HOST))
+    parser.add_argument(
+        '--mqtt-port', dest='mqtt_local_port', action='store',
         type=int,
         help='port of the local broker (default: {})'.format(MQTT_LOCAL_PORT))
-    parser.add_argument('--i2c-bus', dest='i2c_bus', action='store',
+    parser.add_argument(
+        '--i2c-bus', dest='i2c_bus', action='store',
         type=int,
         help='I2C bus number to which the sensor is attached '
         '(default: {})'.format(I2C_BUS_NUM))
-    parser.add_argument('--interval', dest='interval', action='store',
+    parser.add_argument(
+        '--htu-interval', dest='htu_interval', action='store',
         type=int,
-        help='interval in seconds for data acquisition and publication '
-        '(default: {} secs)'.format(ACQUISITION_INTERVAL))
-    parser.add_argument('--influxdb-host', dest='influxdb_host', action='store',
+        help=(
+            'interval in seconds for HTU21D sensor data acquisition '
+            'and publication (default: {} secs)').format(ACQUISITION_INTERVAL))
+    parser.add_argument(
+        '--hkp-interval', dest='hkp_interval', action='store',
+        type=int,
+        help=(
+            'interval in seconds for Housekeeping data acquisition '
+            'and publication (default: {} secs)').format(ACQUISITION_INTERVAL))
+    parser.add_argument(
+        '--influxdb-host', dest='influxdb_host', action='store',
         type=str,
         help='hostname or address of the influx database (default: {})'
-            .format(INFLUXDB_HOST))
-    parser.add_argument('--influxdb-port', dest='influxdb_port', action='store',
+             .format(INFLUXDB_HOST))
+    parser.add_argument(
+        '--influxdb-port', dest='influxdb_port', action='store',
         type=int,
         help='port of the influx database (default: {})'.format(INFLUXDB_PORT))
-    parser.add_argument('--gps-location', dest='gps_location', action='store',
+    parser.add_argument(
+        '--gps-location', dest='gps_location', action='store',
         type=str,
-        help='GPS coordinates of the sensor as latitude,longitude (default: {})'.format(GPS_LOCATION))
+        help=(
+            'GPS coordinates of the sensor as latitude,longitude '
+            '(default: {})').format(GPS_LOCATION))
 
     args = parser.parse_args(remaining_args)
     return args
@@ -224,12 +252,14 @@ def configuration_parser(p_args=None):
 
 def main():
     # Initializes the default logger
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO)
     logger = logging.getLogger(APPLICATION_NAME)
 
     # Checks the Python Interpeter version
     if (sys.version_info < (3, 0)):
-        ###TODO: Print error message here
+        # ###TODO: Print error message here
         sys.exit(-1)
 
     args = configuration_parser()
@@ -250,8 +280,8 @@ def main():
     # TODO: FROM CONFIG?
     v_influxdb_database = 'edgedevicehandler'
 
-    #v_influxdb_username = args.influxdb_username
-    #v_influxdb_password = args.influxdb_password
+    # v_influxdb_username = args.influxdb_username
+    # v_influxdb_password = args.influxdb_password
     v_influxdb_username = 'root'
     v_influxdb_password = 'root'
 
@@ -265,7 +295,9 @@ def main():
 
     _dbs = _client.get_list_database()
     if v_influxdb_database not in [_d['name'] for _d in _dbs]:
-        logger.info("InfluxDB database '{:s}' not found. Creating a new one.".format(v_influxdb_database))
+        logger.info(
+            "InfluxDB database '{:s}' not found. Creating a new one."
+            .format(v_influxdb_database))
         _client.create_database(v_influxdb_database)
 
     _client.close()
@@ -287,8 +319,10 @@ def main():
     }
 
     _main_scheduler = continuous_scheduler.MainScheduler()
-    _main_scheduler.add_task(housekeeping.acquire, 0, 20, 0, _userdata)
-    _main_scheduler.add_task(htu21d_task, 0, 10, 0, _userdata)
+    _main_scheduler.add_task(
+        housekeeping.acquire, 0, args.hkp_interval, 0, _userdata)
+    _main_scheduler.add_task(
+        htu21d_task, 0, args.htu_interval, 0, _userdata)
     _main_scheduler.start()
 
 
