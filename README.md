@@ -37,9 +37,12 @@ Values are applied in the following order, the last overwriting the previous:
 * **gps\_location**
 
    GPS coordinates of the sensor as latitude,longitude (default: *0.0,0.0*)
-* **interval**
+* **htu\_interval**
 
-   interval in seconds for data acquisition and publication (default: *60 secs*)
+   interval in seconds for HTU21D sensor data acquisition and publication (default: *60 secs*)
+* **hkp\_interval**
+
+   interval in seconds for Housekeeping data acquisition and publication (default: *60 secs*)
 * **i2c\_bus**
 
    I2C bus number to which the sensor is attached (default: *1*)
@@ -66,7 +69,8 @@ gps_location=0.0,0.0
 logging_level = 0
 
 [HTU21D_publisher]
-interval=10
+htu_interval=60
+hkp_interval=3600
 logging_level = 1
 i2c_bus = 1
 ```
@@ -90,9 +94,12 @@ i2c_bus = 1
 *  **--i2c-bus I2C\_BUS**
 
    I2C bus number to which the sensor is attached (default: *1*)
-*  **--interval INTERVAL**
+*  **--htu-interval INTERVAL**
 
-   interval in seconds for data acquisition and publication (default: *60 secs*)
+   interval in seconds for HTU21D sensor data acquisition and publication (default: *60 secs*)
+* **--hkp-interval INTERVAL**
+
+   interval in seconds for Housekeeping data acquisition and publication (default: *60 secs*)
 *  **--influxdb-host INFLUXDB\_HOST**
 
    hostname or address of the influx database (default: *localhost*)
