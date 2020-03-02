@@ -1,7 +1,7 @@
 ifeq (${TRAVIS_BRANCH},)
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD | sed -e 's/master/latest/')
 else
-GIT_BRANCH=${TRAVIS_BRANCH}
+GIT_BRANCH=$(shell echo ${TRAVIS_BRANCH} | sed -e 's/master/latest/')
 endif
 
 DOCKER_IMAGE_VERSION=1.0.1
@@ -17,7 +17,6 @@ build-final:
 
 push:
 	docker push $(DOCKER_IMAGE_TAGNAME)
-	docker push $(DOCKER_IMAGE_NAME)
 	docker push $(DOCKER_IMAGE_NAME):$(GIT_BRANCH)
 
 test:
