@@ -1,4 +1,9 @@
-GIT_BRANCH=$(shell git branch --show-current | sed -e 's/master/latest/')
+ifeq (${TRAVIS_BRANCH},)
+GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD | sed -e 's/master/latest/')
+else
+GIT_BRANCH=${TRAVIS_BRANCH}
+endif
+
 DOCKER_IMAGE_VERSION=1.0.1
 DOCKER_IMAGE_NAME=tdmproject/edge-device-handler
 DOCKER_IMAGE_TAGNAME=$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_VERSION)
