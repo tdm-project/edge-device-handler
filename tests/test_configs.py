@@ -55,8 +55,10 @@ COMMANDLINE_PARAMETERS = {
         'cmdline': '--influxdb-port', 'default': INFLUXDB_PORT},
     'gps_location': {
         'cmdline': '--gps-location', 'default': GPS_LOCATION},
-    'interval': {
-        'cmdline': '--interval', 'default': ACQUISITION_INTERVAL},
+    'htu_interval': {
+        'cmdline': '--htu-interval', 'default': ACQUISITION_INTERVAL},
+    'hkp_interval': {
+        'cmdline': '--hkp-interval', 'default': ACQUISITION_INTERVAL},
     'i2c_bus': {
         'cmdline': '--i2c-bus', 'default': I2C_BUS_NUM}
 }
@@ -76,7 +78,8 @@ class TestCommandLineParser(unittest.TestCase):
         self._test_options.influxdb_port = INFLUXDB_PORT + 10
         self._test_options.logging_level = logging.INFO + 10
         self._test_options.gps_location = '1.2345678,1.2345678'
-        self._test_options.interval = ACQUISITION_INTERVAL + 10
+        self._test_options.htu_interval = ACQUISITION_INTERVAL + 10
+        self._test_options.hkp_interval = ACQUISITION_INTERVAL + 10
         self._test_options.i2c_bus = I2C_BUS_NUM + 10
 
         self._test_configuration = Mock()
@@ -87,7 +90,8 @@ class TestCommandLineParser(unittest.TestCase):
         self._test_configuration.influxdb_port = INFLUXDB_PORT + 20
         self._test_configuration.logging_level = logging.INFO + 20
         self._test_configuration.gps_location = '3.6925814,4.8260482'
-        self._test_configuration.interval = ACQUISITION_INTERVAL + 20
+        self._test_configuration.htu_interval = ACQUISITION_INTERVAL + 20
+        self._test_configuration.hkp_interval = ACQUISITION_INTERVAL + 20
         self._test_configuration.i2c_bus = I2C_BUS_NUM + 20
 
         self._config_file = '/tmp/config.ini'
@@ -108,8 +112,10 @@ class TestCommandLineParser(unittest.TestCase):
             self._test_configuration.logging_level))
         _f.write("gps_location  = {}\n".format(
             self._test_configuration.gps_location))
-        _f.write("interval  = {}\n".format(
-            self._test_configuration.interval))
+        _f.write("htu_interval  = {}\n".format(
+            self._test_configuration.htu_interval))
+        _f.write("hkp_interval  = {}\n".format(
+            self._test_configuration.hkp_interval))
         _f.write("i2c_bus  = {}\n".format(
             self._test_configuration.i2c_bus))
         _f.close()
@@ -134,7 +140,9 @@ class TestCommandLineParser(unittest.TestCase):
         _cmd_line.extend(
             ['--gps-location', str(self._test_options.gps_location)])
         _cmd_line.extend(
-            ['--interval', str(self._test_options.interval)])
+            ['--htu-interval', str(self._test_options.htu_interval)])
+        _cmd_line.extend(
+            ['--hkp-interval', str(self._test_options.hkp_interval)])
         _cmd_line.extend(
             ['--i2c-bus', str(self._test_options.i2c_bus)])
 
@@ -153,7 +161,9 @@ class TestCommandLineParser(unittest.TestCase):
         self.assertEqual(
             self._test_options.gps_location, _args.gps_location)
         self.assertEqual(
-            self._test_options.interval, _args.interval)
+            self._test_options.htu_interval, _args.htu_interval)
+        self.assertEqual(
+            self._test_options.hkp_interval, _args.hkp_interval)
         self.assertEqual(
             self._test_options.i2c_bus, _args.i2c_bus)
 
@@ -179,7 +189,9 @@ class TestCommandLineParser(unittest.TestCase):
         _cmd_line.extend(
             ['--gps-location', str(self._test_options.gps_location)])
         _cmd_line.extend(
-            ['--interval', str(self._test_options.interval)])
+            ['--htu-interval', str(self._test_options.htu_interval)])
+        _cmd_line.extend(
+            ['--hkp-interval', str(self._test_options.hkp_interval)])
         _cmd_line.extend(
             ['--i2c-bus', str(self._test_options.i2c_bus)])
 
@@ -198,7 +210,9 @@ class TestCommandLineParser(unittest.TestCase):
         self.assertEqual(
             self._test_options.gps_location, _args.gps_location)
         self.assertEqual(
-            self._test_options.interval, _args.interval)
+            self._test_options.htu_interval, _args.htu_interval)
+        self.assertEqual(
+            self._test_options.hkp_interval, _args.hkp_interval)
         self.assertEqual(
             self._test_options.i2c_bus, _args.i2c_bus)
 
@@ -414,7 +428,8 @@ class TestSpecificOptions(unittest.TestCase):
         self._config_file = '/tmp/config.ini'
         _f = open(self._config_file, "w")
         _f.write("[{:s}]\n".format(APPLICATION_NAME))
-        _f.write("interval = {}\n".format(self._test_interval))
+        _f.write("htu_interval = {}\n".format(self._test_interval))
+        _f.write("hkp_interval = {}\n".format(self._test_interval))
         _f.write("i2c_bus = {}\n".format(self._test_i2c_bus))
         _f.close()
 
@@ -424,7 +439,8 @@ class TestSpecificOptions(unittest.TestCase):
         """
         _args = configuration_parser()
 
-        self.assertIn('interval', _args)
+        self.assertIn('htu_interval', _args)
+        self.assertIn('hkp_interval', _args)
         self.assertIn('i2c_bus', _args)
 
     def test_specific_default(self):
@@ -433,7 +449,8 @@ class TestSpecificOptions(unittest.TestCase):
         """
         _args = configuration_parser()
 
-        self.assertEqual(self._default_interval, _args.interval)
+        self.assertEqual(self._default_interval, _args.htu_interval)
+        self.assertEqual(self._default_interval, _args.hkp_interval)
         self.assertEqual(self._default_i2c_bus, _args.i2c_bus)
 
     def test_specific_options(self):
@@ -443,7 +460,8 @@ class TestSpecificOptions(unittest.TestCase):
         _cmd_line = ['-c', self._config_file]
         _args = configuration_parser(_cmd_line)
 
-        self.assertEqual(self._test_interval, _args.interval)
+        self.assertEqual(self._test_interval, _args.htu_interval)
+        self.assertEqual(self._test_interval, _args.hkp_interval)
         self.assertEqual(self._test_i2c_bus, _args.i2c_bus)
 
     def tearDown(self):
