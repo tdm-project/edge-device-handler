@@ -57,7 +57,7 @@ def signal_handler(sig, frame):
 
 def htu21d_task(userdata):
     v_logger = userdata['LOGGER']
-    v_mqtt_topic = userdata['MQTT_TOPIC'] + '.HTU21D'
+    v_mqtt_topic = 'WeatherObserved/EDGE' + '.HTU21D'
     v_mqtt_local_host = userdata['MQTT_LOCAL_HOST']
     v_mqtt_local_port = userdata['MQTT_LOCAL_PORT']
     v_i2c_bus = userdata['I2C_BUS']
@@ -127,6 +127,7 @@ def htu21d_task(userdata):
             _client.close()
 
     try:
+        del m['dewpoint']
         v_payload = json.dumps(m)
         v_logger.debug(
             "Message topic:\'{:s}\', broker:\'{:s}:{:d}\', "
