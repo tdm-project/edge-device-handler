@@ -35,6 +35,9 @@ MQTT_LOCAL_HOST = "localhost"   # MQTT Broker address
 MQTT_LOCAL_PORT = 1883          # MQTT Broker port
 INFLUXDB_HOST = "localhost"     # INFLUXDB address
 INFLUXDB_PORT = 8086            # INFLUXDB port
+INFLUXDB_DB = "edgedevicehandler" # INFLUXDB database
+INFLUXDB_USER = "root"          # INFLUXDB username
+INFLUXDB_PASS = "root"          # INFLUXDB password
 GPS_LOCATION = "0.0,0.0"        # DEFAULT location
 
 I2C_BUS_NUM = 1             # Default I2C Bus Number (RPi2/3)
@@ -156,6 +159,9 @@ def configuration_parser(p_args=None):
         'logging_level' : logging.INFO,
         'influxdb_host' : INFLUXDB_HOST,
         'influxdb_port' : INFLUXDB_PORT,
+        'influxdb_database' : INFLUXDB_DB,
+        'influxdb_username' : INFLUXDB_USER,
+        'influxdb_password' : INFLUXDB_PASS,
         'gps_location'  : GPS_LOCATION,
     }
 
@@ -278,13 +284,9 @@ def main():
     v_influxdb_host = args.influxdb_host
     v_influxdb_port = args.influxdb_port
 
-    # TODO: FROM CONFIG?
-    v_influxdb_database = 'edgedevicehandler'
-
-    # v_influxdb_username = args.influxdb_username
-    # v_influxdb_password = args.influxdb_password
-    v_influxdb_username = 'root'
-    v_influxdb_password = 'root'
+    v_influxdb_database = args.influxdb_database
+    v_influxdb_username = args.influxdb_username
+    v_influxdb_password = args.influxdb_password
 
     _client = influxdb.InfluxDBClient(
         host=v_influxdb_host,
