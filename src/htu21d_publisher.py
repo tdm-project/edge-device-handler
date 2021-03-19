@@ -49,7 +49,7 @@ APPLICATION_NAME = 'HTU21D_publisher'
 
 PROVIDES = [                # What measures we are providing
     'temperature',
-    'humidity',
+    'relativeHumidity',
     'dewpoint'
 ]
 
@@ -88,7 +88,7 @@ def htu21d_task(userdata):
         htu21d.reset()
 
         m["temperature"] = htu21d.read_temperature()
-        m["humidity"] = htu21d.read_humidity()
+        m["relativeHumidity"] = htu21d.read_humidity()
         m["dewpoint"] = htu21d.read_dewpoint()
 
         _json_data = [{
@@ -99,14 +99,14 @@ def htu21d_task(userdata):
             "time": m['timestamp'],
             "fields": {
                 "temperature": m['temperature'],
-                "humidity": m['humidity'],
+                "relativeHumidity": m['relativeHumidity'],
                 "dewpoint": m['dewpoint']
             }
         }]
 
     except IOError:
         m["temperature"] = None
-        m["humidity"] = None
+        m["relativeHumidity"] = None
         m["dewpoint"] = None
 
         _json_data = None
