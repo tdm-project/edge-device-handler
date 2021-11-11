@@ -9,14 +9,19 @@ LABEL maintainer="Massimo Gaggero <massimo dot gaggero at crs4 dot it>"
 
 ARG APP_HOME
 
+
 # Install required packages
-RUN apk add --no-cache git && \
+RUN apk add --no-cache git gcc python3-dev musl-dev linux-headers && \
 	pip3 install --no-cache-dir virtualenv && \
-	mkdir -p ${APP_HOME} && \
-	cd ${APP_HOME} && \
-	virtualenv venv && \
+	mkdir -p ${APP_HOME}
+
+WORKDIR ${APP_HOME}
+
+COPY requirements.txt requirements.txt
+
+RUN virtualenv venv && \
 	. venv/bin/activate && \
-	pip3 install --no-cache-dir paho-mqtt influxdb && cd /opt/ && \
+	pip3 install --no-cache-dir -r requirements.txt && cd /opt/ && \
 	git clone https://github.com/mgaggero/Adafruit_Python_HTU21D.git && \
 	cd Adafruit_Python_HTU21D && python3 setup.py install
 
@@ -28,6 +33,8 @@ RUN apk add --no-cache git && \
 FROM tdmproject/alpine-python-3:arm32v7-3.10 AS final
 
 ARG APP_HOME
+
+RUN apk add --no-cache wpa_supplicant
 
 ENV APP_HOME=${APP_HOME}
 

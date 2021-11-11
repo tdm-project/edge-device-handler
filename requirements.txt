@@ -1,0 +1,4 @@
+paho-mqtt
+influxdb
+tcp-latency
+psutil

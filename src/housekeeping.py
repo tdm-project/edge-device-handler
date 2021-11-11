@@ -16,47 +16,52 @@
 #  limitations under the License.
 #
 
+import influxdb
+import statistics
+import tcp_latency
 import os
 import json
 import shutil
 import socket
 import platform
 import datetime
+import psutil
+import subprocess as subp
 import paho.mqtt.publish as publish
 
 
 def memoryTotal():
     """
-    Retrieves total system memory from /proc/meminfo in MB
+    Retrieves total system memory in MB
     """
-    meminfo = {
-        _l.split()[0].rstrip(':'): int(_l.split()[1])
-        for _l in open('/proc/meminfo').readlines()}
-    return int(meminfo['MemTotal'] / 1024)
+    _m = psutil.virtual_memory()
+    return int(_m.total / (1024 * 1024))
 
 
 def memoryFree():
     """
-    Retrieves free system memory from /proc/meminfo in MB
+    Retrieves free system memory in MB
     """
-    meminfo = {
-        _l.split()[0].rstrip(':'): int(_l.split()[1])
-        for _l in open('/proc/meminfo').readlines()}
-    return int(meminfo['MemFree'] / 1024)
+    _m = psutil.virtual_memory()
+    return int(_m.free / (1024 * 1024))
+
+
+def memoryAvailable():
+    """
+    Retrieves total available system memory in MB
+    """
+    _m = psutil.virtual_memory()
+    return int(_m.available / (1024 * 1024))
 
 
 def swapTotal():
-    meminfo = {
-        _l.split()[0].rstrip(':'): int(_l.split()[1])
-        for _l in open('/proc/meminfo').readlines()}
-    return int(meminfo['SwapTotal'] / 1024)
+    _s = psutil.swap_memory()
+    return int(_s.total / (1024 * 1024))
 
 
 def swapFree():
-    meminfo = {
-        _l.split()[0].rstrip(':'): int(_l.split()[1])
-        for _l in open('/proc/meminfo').readlines()}
-    return int(meminfo['SwapFree'] / 1024)
+    _s = psutil.swap_memory()
+    return int(_s.free / (1024 * 1024))
 
 
 def lastBoot():
@@ -79,21 +84,91 @@ def diskFree():
     return int(_free / (1024 * 1024))
 
 
-PARAMETER_FUNCTION_MAP = {
-    "lastBoot" : lastBoot,
-    "operatingSystem"   : platform.system,
-    "kernelRelease"     : platform.release,
-    "kernelVersion"     : platform.version,
-    "systemArchitecture": platform.machine,
-    "cpuCount" : os.cpu_count,
-    "diskTotal": diskTotal,
-    "diskFree" : diskFree,
-    "memoryTotal": memoryTotal,
-    "memoryFree ": memoryFree,
-    "swapTotal"  : swapTotal,
-    "swapFree"   : swapFree,
+def rssiSignal():
+    _exec = "wpa_cli"
+    _sock = "/var/run/wpa_supplicant"
+    _ifac = "wlan0"
+    _comd = "signal_poll"
 
+    try:
+        _r = subp.Popen([_exec, '-s', _sock, '-i', _ifac, _comd],
+                        stdout=subp.PIPE, stderr=subp.PIPE)
+        _std_out, _std_err = _r.communicate()
+    except (OSError, ValueError):
+        return None
+    else:
+        if _r.wait() != 0:
+            return None
+        else:
+            _signal = [_s.split(b'=')[1] for _s in _std_out.split()
+                       if _s.lower().startswith(b'rssi=')]
+
+    return int(_signal[0])
+
+
+def tcpLatency():
+    _ls = tcp_latency.measure_latency(host='google.com', runs=5, timeout=2.5)
+    _latency = statistics.median(_ls)
+    _latency = int(_latency * 100) / 100
+
+    return _latency
+
+
+def cpuLoad():
+    _l_1, _l_5, _l_15 = psutil.getloadavg()
+    return _l_1
+
+
+def cpuTemp():
+    _temp = None
+
+    with open('/sys/class/thermal/thermal_zone0/temp') as _tf:
+        _temp = int(_tf.readline()) / 1000
+
+    return _temp
+
+
+def uptime():
+    _uptime = datetime.datetime.now().timestamp() - psutil.boot_time()
+    return _uptime
+
+
+PARAMETER_FUNCTION_MAP = {
+    "lastBoot": lastBoot,
+    "operatingSystem": platform.system,
+    "kernelRelease": platform.release,
+    "kernelVersion": platform.version,
+    "systemArchitecture": platform.machine,
+    "cpuCount": os.cpu_count,
+    "diskTotal": diskTotal,
+    "diskFree": diskFree,
+    "memoryTotal": memoryTotal,
+    "memoryFree": memoryFree,
+    "memoryAvailable": memoryAvailable,
+    "swapTotal": swapTotal,
+    "swapFree": swapFree,
+    "signal": rssiSignal,
+    "tcpLatency": tcpLatency,
+    "cpuLoad": cpuLoad,
+    "cpuTemp": cpuTemp,
+    "uptime": uptime
 }
+
+
+TO_SEND = [
+    "lastBoot",
+    "operatingSystem",
+    "kernelRelease",
+    "kernelVersion",
+    "systemArchitecture",
+    "cpuCount",
+    "diskTotal",
+    "diskFree",
+    "memoryTotal",
+    "memoryFree",
+    "swapTotal",
+    "swapFree"
+]
 
 
 def acquire(userdata):
@@ -102,26 +177,53 @@ def acquire(userdata):
     v_mqtt_host = userdata['MQTT_LOCAL_HOST']
     v_mqtt_port = userdata['MQTT_LOCAL_PORT']
 
-    m = dict()
+    _to_save = dict()
 
     t_now = datetime.datetime.now().timestamp()
     v_timestamp = int(t_now)
 
-    m['dateObserved'] = datetime.datetime.fromtimestamp(
+    _to_save['dateObserved'] = datetime.datetime.fromtimestamp(
         v_timestamp, tz=datetime.timezone.utc).isoformat()
-    m['timestamp'] = v_timestamp
-    m['latitude'] = userdata['LATITUDE']
-    m['longitude'] = userdata['LONGITUDE']
+    _to_save['timestamp'] = v_timestamp
+    _to_save['latitude'] = userdata['LATITUDE']
+    _to_save['longitude'] = userdata['LONGITUDE']
 
     for _parm in PARAMETER_FUNCTION_MAP:
         try:
-            m[_parm] = PARAMETER_FUNCTION_MAP[_parm]()
+            _to_save[_parm] = PARAMETER_FUNCTION_MAP[_parm]()
         except Exception as ex:
-            m[_parm] = None
+            _to_save[_parm] = None
             v_logger.error(ex)
 
     try:
-        v_payload = json.dumps(m)
+        _json_data = [{
+            "measurement": "telemetry",
+            # "tags": {
+            #     "sensor": "htu21d",
+            # },
+            "time": _to_save['timestamp'],
+            "fields": _to_save
+        }]
+        _client = influxdb.InfluxDBClient(
+            host=userdata['INFLUXDB_HOST'],
+            port=userdata['INFLUXDB_PORT'],
+            username=userdata['INFLUXDB_USER'],
+            password=userdata['INFLUXDB_PASS'],
+            database=userdata['INFLUXDB_DB']
+        )
+
+        _client.write_points(_json_data, time_precision='s')
+        v_logger.debug(
+            "Insert data into InfluxDB: {:s}".format(str(_json_data)))
+    except Exception as ex:
+        v_logger.error(ex)
+    finally:
+        _client.close()
+
+    _to_send = {_k: _v for _k, _v in _to_save.items() if _k in TO_SEND}
+
+    try:
+        v_payload = json.dumps(_to_send)
         v_logger.debug(
             "Message topic:\'{:s}\', broker:\'{:s}:{:d}\', message:\'{:s}\'".
             format(v_mqtt_topic, v_mqtt_host, v_mqtt_port, v_payload))
