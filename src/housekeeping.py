@@ -156,6 +156,8 @@ PARAMETER_FUNCTION_MAP = {
 
 
 TO_SEND = [
+    "dateObserved",
+    "timestamp",
     "lastBoot",
     "operatingSystem",
     "kernelRelease",
